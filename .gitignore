@@ -1,0 +1,17 @@
+# Python
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+backend/oraq_app.db
+backend/.env
+
+# Flutter
+oral_health_ai/.dart_tool/
+oral_health_ai/build/
+oral_health_ai/.flutter-plugins
+oral_health_ai/.flutter-plugins-dependencies
+
+# OS / editor
+.vscode/
+.DS_Store
+Thumbs.db
