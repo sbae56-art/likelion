@@ -175,6 +175,34 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+
+class UserProfileOut(BaseModel):
+    full_name: Optional[str] = None
+    age: Optional[int] = None
+    gender: Optional[str] = None
+    blood_type: Optional[str] = None
+    smoker: bool = False
+    alcohol: bool = False
+
+
+class LoginTokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+    email: str
+    profile: UserProfileOut
+
+
+def user_to_profile_out(user: User) -> UserProfileOut:
+    return UserProfileOut(
+        full_name=user.full_name,
+        age=user.age,
+        gender=user.gender,
+        blood_type=user.blood_type,
+        smoker=bool(user.smoker) if user.smoker is not None else False,
+        alcohol=bool(user.alcohol) if user.alcohol is not None else False,
+    )
+
+
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     age: Optional[int] = None
@@ -210,14 +238,20 @@ async def signup(user_in: UserCreate, db: Session = Depends(get_db)):
     return {"message": "Signup successful"}
 
 # [AUTH] Login
-@app.post("/auth/login", response_model=Token)
+@app.post("/auth/login", response_model=LoginTokenResponse)
 async def login(request: Request, db: Session = Depends(get_db)):
     email, password = await extract_login_credentials(request)
     user = db.query(User).filter(User.email == email).first()
     if not user or not user.hashed_password or not pwd_context.verify(password, user.hashed_password):
         raise HTTPException(status_code=400, detail="Incorrect email or password.")
+    db.refresh(user)
     access_token = create_access_token(data={"sub": user.email})
-    return {"access_token": access_token, "token_type": "bearer"}
+    return LoginTokenResponse(
+        access_token=access_token,
+        token_type="bearer",
+        email=user.email,
+        profile=user_to_profile_out(user),
+    )
 
 # [GOOGLE AUTH] Google Login
 @app.get("/auth/google/login")
@@ -250,7 +284,7 @@ async def google_auth(request: Request, db: Session = Depends(get_db)):
     access_token = create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer", "method": "google"}
 
-@app.post("/auth/google/mobile", response_model=Token)
+@app.post("/auth/google/mobile", response_model=LoginTokenResponse)
 async def google_mobile_login(payload: GoogleMobileLoginRequest, db: Session = Depends(get_db)):
     if not GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=500, detail="Google login is not configured.")
@@ -282,8 +316,14 @@ async def google_mobile_login(payload: GoogleMobileLoginRequest, db: Session = D
         db.commit()
         db.refresh(user)
 
+    db.refresh(user)
     access_token = create_access_token(data={"sub": user.email})
-    return {"access_token": access_token, "token_type": "bearer"}
+    return LoginTokenResponse(
+        access_token=access_token,
+        token_type="bearer",
+        email=user.email,
+        profile=user_to_profile_out(user),
+    )
 
 # 1. AI Diagnosis (predictRisk)
 @app.post("/scans/predict")

@@ -105,9 +105,9 @@ class AuthService {
       );
 
       if (response.statusCode == 200) {
-        final body = jsonDecode(response.body);
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
         await _saveToken(body);
-        await refreshProfileFromServer();
+        await applyAuthResponseBody(body);
         return {
           'success': true,
           'data': body,
@@ -152,9 +152,9 @@ class AuthService {
       );
 
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
         await _saveToken(decoded);
-        await refreshProfileFromServer();
+        await applyAuthResponseBody(decoded);
 
         return {
           'success': true,
@@ -234,6 +234,81 @@ class AuthService {
     }
   }
 
+  static Future<void> applyAuthResponseBody(Map<String, dynamic> body) async {
+    final prefs = await SharedPreferences.getInstance();
+    final email = body['email']?.toString().trim();
+    if (email != null && email.isNotEmpty) {
+      final prev = prefs.getString('cached_account_email');
+      if (prev != null && prev != email) {
+        await _clearLocalProfileFields(prefs);
+      }
+      await prefs.setString('cached_account_email', email);
+    }
+
+    final raw = body['profile'];
+    if (raw is Map<String, dynamic>) {
+      await persistServerProfileMap(raw);
+      return;
+    }
+    if (raw is Map) {
+      await persistServerProfileMap(Map<String, dynamic>.from(raw));
+      return;
+    }
+    await refreshProfileFromServer();
+  }
+
+  static Future<void> _clearLocalProfileFields(SharedPreferences prefs) async {
+    await prefs.remove('profile_full_name');
+    await prefs.remove('profile_age');
+    await prefs.remove('profile_gender');
+    await prefs.remove('profile_blood_type');
+    await prefs.remove('profile_smoker');
+    await prefs.remove('profile_alcohol');
+  }
+
+  static Future<void> persistServerProfileMap(Map<String, dynamic> decoded) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final fn = decoded['full_name']?.toString();
+    if (fn != null && fn.isNotEmpty) {
+      await prefs.setString('profile_full_name', fn);
+    }
+
+    final ageVal = decoded['age'];
+    if (ageVal is int) {
+      await prefs.setInt('profile_age', ageVal);
+    } else if (ageVal is num) {
+      await prefs.setInt('profile_age', ageVal.round());
+    } else if (ageVal != null) {
+      final p = int.tryParse(ageVal.toString());
+      if (p != null) await prefs.setInt('profile_age', p);
+    }
+
+    final g = decoded['gender']?.toString();
+    if (g != null && g.isNotEmpty) {
+      await prefs.setString('profile_gender', g);
+    }
+
+    final bt = decoded['blood_type']?.toString();
+    if (bt != null && bt.isNotEmpty) {
+      await prefs.setString('profile_blood_type', bt);
+    }
+
+    final sm = decoded['smoker'];
+    if (sm is bool) {
+      await prefs.setBool('profile_smoker', sm);
+    } else if (sm != null) {
+      await prefs.setBool('profile_smoker', sm.toString() == 'true');
+    }
+
+    final alc = decoded['alcohol'];
+    if (alc is bool) {
+      await prefs.setBool('profile_alcohol', alc);
+    } else if (alc != null) {
+      await prefs.setBool('profile_alcohol', alc.toString() == 'true');
+    }
+  }
+
   static Future<void> refreshProfileFromServer() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('access_token');
@@ -255,42 +330,7 @@ class AuthService {
       final decoded = jsonDecode(response.body);
       if (decoded is! Map<String, dynamic>) return;
 
-      final fn = decoded['full_name']?.toString();
-      if (fn != null && fn.isNotEmpty) {
-        await prefs.setString('profile_full_name', fn);
-      }
-
-      final ageVal = decoded['age'];
-      if (ageVal is int) {
-        await prefs.setInt('profile_age', ageVal);
-      } else if (ageVal != null) {
-        final p = int.tryParse(ageVal.toString());
-        if (p != null) await prefs.setInt('profile_age', p);
-      }
-
-      final g = decoded['gender']?.toString();
-      if (g != null && g.isNotEmpty) {
-        await prefs.setString('profile_gender', g);
-      }
-
-      final bt = decoded['blood_type']?.toString();
-      if (bt != null && bt.isNotEmpty) {
-        await prefs.setString('profile_blood_type', bt);
-      }
-
-      final sm = decoded['smoker'];
-      if (sm is bool) {
-        await prefs.setBool('profile_smoker', sm);
-      } else if (sm != null) {
-        await prefs.setBool('profile_smoker', sm.toString() == 'true');
-      }
-
-      final alc = decoded['alcohol'];
-      if (alc is bool) {
-        await prefs.setBool('profile_alcohol', alc);
-      } else if (alc != null) {
-        await prefs.setBool('profile_alcohol', alc.toString() == 'true');
-      }
+      await persistServerProfileMap(decoded);
     } catch (_) {}
   }
 
@@ -316,12 +356,6 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('access_token');
     await prefs.remove('token_type');
-    await prefs.remove('profile_full_name');
-    await prefs.remove('profile_age');
-    await prefs.remove('profile_gender');
-    await prefs.remove('profile_blood_type');
-    await prefs.remove('profile_smoker');
-    await prefs.remove('profile_alcohol');
   }
 
   static Future<void> _saveToken(Map<String, dynamic> body) async {
