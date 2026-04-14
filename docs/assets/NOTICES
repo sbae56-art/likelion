@@ -1659,9 +1659,6 @@ file_selector_macos
 file_selector_platform_interface
 file_selector_windows
 flutter_plugin_android_lifecycle
-google_sign_in_android
-google_sign_in_ios
-google_sign_in_web
 image_picker_for_web
 image_picker_macos
 image_picker_platform_interface
@@ -5166,9 +5163,6 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 --------------------------------------------------------------------------------
 flutter_lints
-google_identity_services_web
-google_sign_in
-google_sign_in_platform_interface
 image_picker_linux
 image_picker_windows
 path_provider_linux
