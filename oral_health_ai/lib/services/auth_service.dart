@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   static const String googleClientId =
-      '885762786337-baofjqmveplr5u26k5fmltkuoeahvqct.apps.googleusercontent.com';
+      '360152998799-iud4ufqjuqb5ak9jjl44dl4pm8iki0je.apps.googleusercontent.com';
 
   static String get baseUrl {
     if (kIsWeb) {
