@@ -43,17 +43,27 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
         clientId: AuthService.googleClientId,
         onCredential: _handleIdToken,
       );
-      if (mounted) setState(() => _isInitialized = true);
-    } catch (e) {
-      if (mounted) setState(() => _initError = 'Google login unavailable');
+
+      if (mounted) {
+        setState(() => _isInitialized = true);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _initError = 'Google login unavailable');
+      }
     }
   }
 
   Future<void> _handleIdToken(String idToken) async {
     if (_isLoading) return;
-    if (mounted) setState(() => _isLoading = true);
 
-    String email = '';
+    if (mounted) {
+      setState(() => _isLoading = true);
+    }
+
+    String? email;
+    String? displayName;
+
     try {
       final parts = idToken.split('.');
       if (parts.length >= 2) {
@@ -61,18 +71,25 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
         while (payload.length % 4 != 0) {
           payload += '=';
         }
+
         final bytes = base64Url.decode(payload);
         final json = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
-        email = json['email']?.toString() ?? '';
+
+        email = json['email']?.toString();
+        displayName = json['name']?.toString();
       }
-    } catch (_) {}
+    } catch (_) {
+      // 토큰 파싱 실패해도 id_token 자체로 서버 검증 시도
+    }
 
     final result = await AuthService.loginWithIdToken(
       idToken: idToken,
       email: email,
+      displayName: displayName,
     );
 
     if (!mounted) return;
+
     setState(() => _isLoading = false);
 
     if (result['success'] == true) {
@@ -88,19 +105,22 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
       return;
     }
 
+    if (_isLoading) return;
+
     setState(() => _isLoading = true);
+
     try {
       await gsi.promptGoogleSignIn();
     } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        _showMessage('Google sign-in failed: $e');
-      }
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      _showMessage('Google sign-in failed: $e');
     }
   }
 
   void _showMessage(String message) {
     if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
@@ -119,7 +139,9 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
       return const SizedBox(
         height: 50,
         child: Center(
-          child: CircularProgressIndicator(color: Color(0xFF0C8A8A)),
+          child: CircularProgressIndicator(
+            color: Color(0xFF0C8A8A),
+          ),
         ),
       );
     }

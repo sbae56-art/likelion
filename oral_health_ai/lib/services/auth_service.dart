@@ -48,9 +48,8 @@ class AuthService {
 
       if (response.statusCode == 200) {
         final prefs = await SharedPreferences.getInstance();
-
-        // 회원가입 시점에 프로필 기본값도 같이 저장
         await prefs.setString('profile_full_name', fullName);
+
         if (!prefs.containsKey('profile_age')) {
           await prefs.setInt('profile_age', 34);
         }
@@ -129,28 +128,32 @@ class AuthService {
 
   static Future<Map<String, dynamic>> loginWithIdToken({
     required String idToken,
-    required String email,
+    String? email,
     String? displayName,
   }) async {
     try {
+      final body = <String, dynamic>{
+        'id_token': idToken,
+        'display_name': displayName,
+      };
+
+      if (email != null && email.trim().isNotEmpty) {
+        body['email'] = email.trim();
+      }
+
       final response = await http.post(
         Uri.parse('$baseUrl/auth/google/mobile'),
         headers: {
           'Content-Type': 'application/json',
           'accept': 'application/json',
         },
-        body: jsonEncode({
-          'id_token': idToken,
-          'email': email,
-          'display_name': displayName,
-        }),
+        body: jsonEncode(body),
       );
 
       if (response.statusCode == 200) {
-        final body = jsonDecode(response.body);
-        await _saveToken(body);
+        final decoded = jsonDecode(response.body);
+        await _saveToken(decoded);
 
-        // 구글 로그인 이름도 프로필에 반영
         if (displayName != null && displayName.trim().isNotEmpty) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('profile_full_name', displayName.trim());
@@ -158,7 +161,7 @@ class AuthService {
 
         return {
           'success': true,
-          'data': body,
+          'data': decoded,
         };
       }
 
@@ -254,8 +257,6 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('access_token');
     await prefs.remove('token_type');
-
-    // 로그아웃 시 프로필 캐시도 같이 삭제
     await prefs.remove('profile_full_name');
     await prefs.remove('profile_age');
     await prefs.remove('profile_gender');
