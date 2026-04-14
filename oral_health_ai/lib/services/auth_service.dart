@@ -32,31 +32,38 @@ class AuthService {
   }) async {
     final url = Uri.parse('$baseUrl/auth/signup');
 
-    final response = await http.post(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'accept': 'application/json',
-      },
-      body: jsonEncode({
-        'email': email,
-        'password': password,
-        'full_name': fullName,
-      }),
-    );
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'accept': 'application/json',
+        },
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+          'full_name': fullName,
+        }),
+      );
 
-    if (response.statusCode == 200) {
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'data': jsonDecode(response.body),
+        };
+      }
+
       return {
-        'success': true,
-        'data': jsonDecode(response.body),
+        'success': false,
+        'message': _extractMessage(response, 'Signup failed'),
+        'statusCode': response.statusCode,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Signup exception: $e',
       };
     }
-
-    return {
-      'success': false,
-      'message': _extractMessage(response, 'Signup failed'),
-      'statusCode': response.statusCode,
-    };
   }
 
   static Future<Map<String, dynamic>> login({
@@ -65,29 +72,39 @@ class AuthService {
   }) async {
     final url = Uri.parse('$baseUrl/auth/login');
 
-    final response = await http.post(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'accept': 'application/json',
-      },
-      body: jsonEncode({
-        'email': email,
-        'password': password,
-      }),
-    );
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'accept': 'application/json',
+        },
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+        }),
+      );
 
-    if (response.statusCode == 200) {
-      final body = jsonDecode(response.body);
-      await _saveToken(body);
-      return {'success': true, 'data': body};
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        await _saveToken(body);
+        return {
+          'success': true,
+          'data': body,
+        };
+      }
+
+      return {
+        'success': false,
+        'message': _extractMessage(response, 'Login failed'),
+        'statusCode': response.statusCode,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Login exception: $e',
+      };
     }
-
-    return {
-      'success': false,
-      'message': _extractMessage(response, 'Login failed'),
-      'statusCode': response.statusCode,
-    };
   }
 
   static Future<Map<String, dynamic>> loginWithIdToken({
@@ -95,29 +112,109 @@ class AuthService {
     required String email,
     String? displayName,
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/auth/google/mobile'),
-      headers: {
-        'Content-Type': 'application/json',
-        'accept': 'application/json',
-      },
-      body: jsonEncode({
-        'id_token': idToken,
-        'email': email,
-        'display_name': displayName,
-      }),
-    );
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/google/mobile'),
+        headers: {
+          'Content-Type': 'application/json',
+          'accept': 'application/json',
+        },
+        body: jsonEncode({
+          'id_token': idToken,
+          'email': email,
+          'display_name': displayName,
+        }),
+      );
 
-    if (response.statusCode == 200) {
-      final body = jsonDecode(response.body);
-      await _saveToken(body);
-      return {'success': true, 'data': body};
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        await _saveToken(body);
+        return {
+          'success': true,
+          'data': body,
+        };
+      }
+
+      return {
+        'success': false,
+        'message': _extractMessage(response, 'Google login failed'),
+        'statusCode': response.statusCode,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Google login exception: $e',
+      };
     }
+  }
+
+  static Future<Map<String, dynamic>> updateProfile({
+    required String fullName,
+    required int age,
+    required String gender,
+    required String bloodType,
+    required bool smoker,
+    required bool alcohol,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString('profile_full_name', fullName);
+    await prefs.setInt('profile_age', age);
+    await prefs.setString('profile_gender', gender);
+    await prefs.setString('profile_blood_type', bloodType);
+    await prefs.setBool('profile_smoker', smoker);
+    await prefs.setBool('profile_alcohol', alcohol);
+
+    try {
+      final token = prefs.getString('access_token');
+
+      if (token != null && token.isNotEmpty) {
+        final response = await http.patch(
+          Uri.parse('$baseUrl/users/me'),
+          headers: {
+            'Content-Type': 'application/json',
+            'accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({
+            'full_name': fullName,
+            'age': age,
+            'gender': gender,
+            'blood_type': bloodType,
+          }),
+        );
+
+        if (response.statusCode != 200) {
+          return {
+            'success': false,
+            'message': _extractMessage(response, 'Failed to update profile'),
+            'statusCode': response.statusCode,
+          };
+        }
+      }
+
+      return {
+        'success': true,
+        'message': 'Profile updated successfully',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Profile update exception: $e',
+      };
+    }
+  }
+
+  static Future<Map<String, dynamic>> getSavedProfile() async {
+    final prefs = await SharedPreferences.getInstance();
 
     return {
-      'success': false,
-      'message': _extractMessage(response, 'Google login failed'),
-      'statusCode': response.statusCode,
+      'full_name': prefs.getString('profile_full_name') ?? 'Alex Johnson',
+      'age': prefs.getInt('profile_age') ?? 34,
+      'gender': prefs.getString('profile_gender') ?? 'Others',
+      'blood_type': prefs.getString('profile_blood_type') ?? 'O+',
+      'smoker': prefs.getBool('profile_smoker') ?? false,
+      'alcohol': prefs.getBool('profile_alcohol') ?? false,
     };
   }
 
@@ -141,7 +238,9 @@ class AuthService {
   static String _extractMessage(http.Response response, String fallback) {
     try {
       final body = jsonDecode(response.body);
-      return body['detail']?.toString() ?? fallback;
+      return body['detail']?.toString() ??
+          body['message']?.toString() ??
+          fallback;
     } catch (_) {
       return response.body.isNotEmpty ? response.body : fallback;
     }
