@@ -16,6 +16,7 @@ dependencies:
   shared_preferences: ^2.2.3
   web: ^1.1.0
   camera: ^0.11.0+2
+  cross_file: ^0.3.4
 
 dev_dependencies:
   flutter_test:

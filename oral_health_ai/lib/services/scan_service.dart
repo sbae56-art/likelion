@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:camera/camera.dart';
+import 'package:cross_file/cross_file.dart';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 

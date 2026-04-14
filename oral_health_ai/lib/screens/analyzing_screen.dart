@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../models/scan_result_data.dart';
 import '../services/scan_service.dart';
+import 'camera_scan_helpers.dart';
 import 'result_screen.dart';
 import '../widgets/scan/analysis_progress_bar.dart';
 import '../widgets/scan/mouth_guide.dart';
@@ -48,7 +48,7 @@ class _AnalyzingScreenState extends State<AnalyzingScreen> {
   }
 
   Future<void> _startAnalysis() async {
-    final result = await ScanService.predictRisk(widget.imageFile);
+    final result = await ScanService.analyzeImage(widget.imageFile);
 
     if (!mounted) return;
 
@@ -60,9 +60,7 @@ class _AnalyzingScreenState extends State<AnalyzingScreen> {
         progress = 1.0;
       });
 
-      final scanResult = ScanResultData.fromPredictResponse(
-        result['data'] as Map<String, dynamic>,
-      );
+      final scanResult = scanResultFromAnalyzeMap(result);
 
       await Future<void>.delayed(const Duration(milliseconds: 250));
       if (!mounted) return;
