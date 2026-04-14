@@ -86,13 +86,13 @@ class AuthService {
     final response = await http.post(
       url,
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
         'accept': 'application/json',
       },
-      body: {
-        'username': email, // 백엔드 계약상 email이 아니라 username
+      body: jsonEncode({
+        'email': email,
         'password': password,
-      },
+      }),
     );
 
     if (response.statusCode == 200) {
