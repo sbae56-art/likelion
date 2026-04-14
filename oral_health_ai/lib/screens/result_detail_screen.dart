@@ -184,7 +184,7 @@ class ResultDetailScreen extends StatelessWidget {
                         color: _badgeBackground,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: _accentColor.withOpacity(0.2),
+                          color: _accentColor.withValues(alpha: 0.2),
                         ),
                       ),
                       child: Row(

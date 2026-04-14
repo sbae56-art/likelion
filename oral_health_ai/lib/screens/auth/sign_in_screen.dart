@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/auth/auth_divider_text.dart';
 import '../../widgets/auth/auth_input_field.dart';
+import '../../widgets/auth/google_sign_in_button.dart';
 import '../../widgets/auth/auth_primary_button.dart';
-import '../../widgets/auth/auth_social_button.dart';
 import '../home_screen.dart';
 import 'sign_up_screen.dart';
 
@@ -144,9 +144,16 @@ class _SignInScreenState extends State<SignInScreen> {
               const SizedBox(height: 28),
               const AuthDividerText(text: 'or sign in with'),
               const SizedBox(height: 28),
-              AuthSocialButton(
-                text: 'Continue with Google',
-                onPressed: () {},
+              GoogleSignInButton(
+                onSuccess: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Google 로그인 성공')),
+                  );
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const HomeScreen()),
+                  );
+                },
               ),
               const Spacer(),
               Row(

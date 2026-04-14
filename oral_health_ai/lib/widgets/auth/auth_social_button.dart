@@ -26,7 +26,7 @@ class AuthSocialButton extends StatelessWidget {
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
+          children: [
             Text(
               'G',
               style: TextStyle(
@@ -37,8 +37,8 @@ class AuthSocialButton extends StatelessWidget {
             ),
             SizedBox(width: 10),
             Text(
-              'Continue with Google',
-              style: TextStyle(
+              text,
+              style: const TextStyle(
                 color: Colors.black,
                 fontSize: 16,
                 fontWeight: FontWeight.w500,

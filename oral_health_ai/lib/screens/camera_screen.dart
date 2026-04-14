@@ -86,7 +86,7 @@ class CameraScreen extends StatelessWidget {
                     child: Text(
                       'Position your mouth within the guide',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.42),
+                        color: Colors.white.withValues(alpha: 0.42),
                         fontSize: 14,
                         fontWeight: FontWeight.w400,
                       ),
@@ -142,7 +142,7 @@ class CameraScreen extends StatelessWidget {
                     height: 32,
                     decoration: BoxDecoration(
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.65),
+                        color: Colors.white.withValues(alpha: 0.65),
                         width: 1.2,
                       ),
                       borderRadius: BorderRadius.circular(7),
