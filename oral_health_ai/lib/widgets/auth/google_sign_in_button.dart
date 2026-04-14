@@ -6,7 +6,6 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../services/auth_service.dart';
 import 'auth_social_button.dart';
-import 'google_web_wrapper.dart';
 
 class GoogleSignInButton extends StatefulWidget {
   final VoidCallback onSuccess;
@@ -25,10 +24,8 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
   bool _isLoading = false;
   bool _isInitialized = false;
   bool _isHandlingWebEvent = false;
+  bool _canAuthenticate = false;
   String? _initializationError;
-
-  bool get _usesWebRenderedButton =>
-      kIsWeb && !AuthService.googleSignIn.supportsAuthenticate();
 
   @override
   void initState() {
@@ -40,51 +37,53 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
     try {
       await AuthService.initializeGoogleSignIn();
 
-      if (_usesWebRenderedButton) {
-        _authSubscription = AuthService.googleSignIn.authenticationEvents.listen(
-          (event) {
-            if (event is GoogleSignInAuthenticationEventSignIn) {
-              _handleWebGoogleLogin(event.user);
-            }
-          },
-          onError: (Object error) {
-            _showMessage(_googleErrorMessage(error));
-          },
-        );
+      bool canAuth = false;
+      try {
+        canAuth = AuthService.googleSignIn.supportsAuthenticate();
+      } catch (_) {
+        canAuth = false;
       }
 
-      if (!mounted) {
-        return;
+      if (!canAuth && kIsWeb) {
+        try {
+          _authSubscription =
+              AuthService.googleSignIn.authenticationEvents.listen(
+            (event) {
+              if (event is GoogleSignInAuthenticationEventSignIn) {
+                _handleWebGoogleLogin(event.user);
+              }
+            },
+            onError: (Object error) {
+              _showMessage(_googleErrorMessage(error));
+            },
+          );
+        } catch (_) {
+          // Stream not available; fall back to plain button.
+        }
       }
+
+      if (!mounted) return;
 
       setState(() {
+        _canAuthenticate = canAuth;
         _isInitialized = true;
       });
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       setState(() {
-        _initializationError = 'Google login initialization failed.';
+        _initializationError = 'Google login is not available.';
       });
-      _showMessage('$error');
     }
   }
 
-  Future<void> _handleMobileOrDesktopGoogleLogin() async {
-    setState(() {
-      _isLoading = true;
-    });
+  Future<void> _handleGoogleLogin() async {
+    setState(() => _isLoading = true);
 
     final result = await AuthService.loginWithGoogle();
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
-    setState(() {
-      _isLoading = false;
-    });
+    setState(() => _isLoading = false);
 
     if (result['success'] == true) {
       widget.onSuccess();
@@ -95,24 +94,16 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
   }
 
   Future<void> _handleWebGoogleLogin(GoogleSignInAccount user) async {
-    if (_isHandlingWebEvent) {
-      return;
-    }
+    if (_isHandlingWebEvent) return;
 
     _isHandlingWebEvent = true;
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     final result = await AuthService.loginWithGoogleAccount(user);
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     _isHandlingWebEvent = false;
-    setState(() {
-      _isLoading = false;
-    });
+    setState(() => _isLoading = false);
 
     if (result['success'] == true) {
       widget.onSuccess();
@@ -131,15 +122,11 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
           return error.description ?? 'Google sign-in failed.';
       }
     }
-
     return error.toString();
   }
 
   void _showMessage(String message) {
-    if (!mounted) {
-      return;
-    }
-
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
@@ -156,9 +143,7 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
     if (_initializationError != null) {
       return AuthSocialButton(
         text: 'Google login unavailable',
-        onPressed: () {
-          _showMessage(_initializationError!);
-        },
+        onPressed: () => _showMessage(_initializationError!),
       );
     }
 
@@ -166,32 +151,19 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
       return const SizedBox(
         height: 50,
         child: Center(
-          child: CircularProgressIndicator(
-            color: Color(0xFF0C8A8A),
-          ),
+          child: CircularProgressIndicator(color: Color(0xFF0C8A8A)),
         ),
-      );
-    }
-
-    if (_usesWebRenderedButton) {
-      return Column(
-        children: [
-          renderGoogleButton(),
-          if (_isLoading) ...[
-            const SizedBox(height: 12),
-            const SizedBox(
-              height: 18,
-              width: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          ],
-        ],
       );
     }
 
     return AuthSocialButton(
       text: _isLoading ? 'Signing In...' : 'Continue with Google',
-      onPressed: _isLoading ? () {} : _handleMobileOrDesktopGoogleLogin,
+      onPressed: _isLoading
+          ? () {}
+          : _canAuthenticate
+              ? _handleGoogleLogin
+              : () => _showMessage(
+                  'Google login requires server-side configuration.'),
     );
   }
 }
