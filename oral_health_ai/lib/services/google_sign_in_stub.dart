@@ -7,6 +7,10 @@ void initGoogleSignInWeb({
   throw UnsupportedError('Google Sign-In web is only available on web.');
 }
 
-Future<String> promptGoogleSignIn() {
+void showGooglePrompt() {
+  throw UnsupportedError('Google Sign-In web is only available on web.');
+}
+
+void triggerGoogleSignIn() {
   throw UnsupportedError('Google Sign-In web is only available on web.');
 }

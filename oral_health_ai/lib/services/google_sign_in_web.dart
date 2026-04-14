@@ -1,8 +1,12 @@
-import 'dart:async';
 import 'dart:js_interop';
+
+import 'package:web/web.dart' as web;
 
 @JS('google.accounts.id.initialize')
 external void _gsiInitialize(JSObject config);
+
+@JS('google.accounts.id.renderButton')
+external void _gsiRenderButton(JSAny element, JSObject config);
 
 @JS('google.accounts.id.prompt')
 external void _gsiPrompt();
@@ -14,7 +18,6 @@ extension type _CredentialResponse._(JSObject _) implements JSObject {
 typedef GoogleCredentialCallback = void Function(String idToken);
 
 bool _initialized = false;
-Completer<String>? _pendingLogin;
 
 void initGoogleSignInWeb({
   required String clientId,
@@ -26,24 +29,46 @@ void initGoogleSignInWeb({
     'client_id': clientId.toJS,
     'callback': ((JSAny response) {
       final cred = response as _CredentialResponse;
-      final token = cred.credential;
-      onCredential(token);
-      _pendingLogin?.complete(token);
-      _pendingLogin = null;
+      onCredential(cred.credential);
     }).toJS,
     'auto_select': false.toJS,
   }.jsify() as JSObject;
 
   _gsiInitialize(config);
+
+  final container = web.document.createElement('div');
+  container.id = 'gsi-hidden-btn';
+  (container as web.HTMLElement).style.setProperty('position', 'fixed');
+  container.style.setProperty('top', '-9999px');
+  container.style.setProperty('left', '-9999px');
+  web.document.body!.append(container);
+
+  final btnConfig = <String, JSAny?>{
+    'type': 'standard'.toJS,
+    'size': 'large'.toJS,
+    'theme': 'outline'.toJS,
+    'text': 'signin_with'.toJS,
+  }.jsify() as JSObject;
+
+  _gsiRenderButton(container, btnConfig);
+
   _initialized = true;
 }
 
-Future<String> promptGoogleSignIn() {
-  if (_pendingLogin != null) {
-    return _pendingLogin!.future;
-  }
-
-  _pendingLogin = Completer<String>();
+void showGooglePrompt() {
   _gsiPrompt();
-  return _pendingLogin!.future;
+}
+
+void triggerGoogleSignIn() {
+  final container = web.document.getElementById('gsi-hidden-btn');
+  if (container == null) return;
+
+  final btn = container.querySelector('div[role="button"]')
+      ?? container.querySelector('iframe');
+
+  if (btn != null) {
+    (btn as web.HTMLElement).click();
+  } else {
+    _gsiPrompt();
+  }
 }

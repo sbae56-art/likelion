@@ -99,7 +99,7 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
     }
   }
 
-  Future<void> _onTap() async {
+  void _onTap() {
     if (!kIsWeb) {
       _showMessage('Google login is only available on web.');
       return;
@@ -107,15 +107,7 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
 
     if (_isLoading) return;
 
-    setState(() => _isLoading = true);
-
-    try {
-      await gsi.promptGoogleSignIn();
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      _showMessage('Google sign-in failed: $e');
-    }
+    gsi.triggerGoogleSignIn();
   }
 
   void _showMessage(String message) {
