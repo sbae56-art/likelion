@@ -1,10 +1,19 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import '../models/scan_result_data.dart';
+import '../services/scan_service.dart';
+import 'result_screen.dart';
 import '../widgets/scan/analysis_progress_bar.dart';
 import '../widgets/scan/mouth_guide.dart';
 
 class AnalyzingScreen extends StatefulWidget {
-  const AnalyzingScreen({super.key});
+  final XFile imageFile;
+
+  const AnalyzingScreen({
+    super.key,
+    required this.imageFile,
+  });
 
   @override
   State<AnalyzingScreen> createState() => _AnalyzingScreenState();
@@ -19,6 +28,7 @@ class _AnalyzingScreenState extends State<AnalyzingScreen> {
   @override
   void initState() {
     super.initState();
+    _startAnalysis();
 
     progressTimer = Timer.periodic(const Duration(milliseconds: 120), (timer) {
       setState(() {
@@ -35,6 +45,43 @@ class _AnalyzingScreenState extends State<AnalyzingScreen> {
         dotCount = dotCount % 3 + 1;
       });
     });
+  }
+
+  Future<void> _startAnalysis() async {
+    final result = await ScanService.predictRisk(widget.imageFile);
+
+    if (!mounted) return;
+
+    progressTimer?.cancel();
+    dotTimer?.cancel();
+
+    if (result['success'] == true) {
+      setState(() {
+        progress = 1.0;
+      });
+
+      final scanResult = ScanResultData.fromPredictResponse(
+        result['data'] as Map<String, dynamic>,
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ResultScreen(result: scanResult),
+        ),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(result['message']?.toString() ?? '분석에 실패했습니다.'),
+      ),
+    );
+    Navigator.pop(context);
   }
 
   @override

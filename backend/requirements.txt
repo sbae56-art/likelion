@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+python-multipart
+sqlalchemy
+python-jose[cryptography]
+authlib
+httpx
+tensorflow
+numpy
+pillow
+python-dotenv
+email-validator
+passlib[bcrypt]
+bcrypt==3.2.0
+itsdangerous
+google-auth

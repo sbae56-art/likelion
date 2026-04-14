@@ -3,7 +3,8 @@ import '../../services/auth_service.dart';
 import '../../widgets/auth/auth_divider_text.dart';
 import '../../widgets/auth/auth_input_field.dart';
 import '../../widgets/auth/auth_primary_button.dart';
-import '../../widgets/auth/auth_social_button.dart';
+import '../../widgets/auth/google_sign_in_button.dart';
+import '../home_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -238,9 +239,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
               const SizedBox(height: 28),
               const AuthDividerText(text: 'or sign up with'),
               const SizedBox(height: 28),
-              AuthSocialButton(
-                text: 'Continue with Google',
-                onPressed: () {},
+              GoogleSignInButton(
+                onSuccess: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Google 로그인 성공')),
+                  );
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const HomeScreen()),
+                    (_) => false,
+                  );
+                },
               ),
               const Spacer(),
               Row(

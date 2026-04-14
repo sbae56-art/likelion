@@ -1,90 +1,113 @@
 import 'package:flutter/material.dart';
-
-enum ScanResultType { normal, caution, highRisk }
+import '../models/scan_item.dart';
+import '../models/scan_result_data.dart';
+import 'result_detail_screen.dart';
 
 class ResultScreen extends StatelessWidget {
-  final ScanResultType type;
+  final ScanResultData result;
 
   const ResultScreen({
     super.key,
-    required this.type,
+    required this.result,
   });
 
   _ResultConfig _getConfig() {
-    switch (type) {
-      case ScanResultType.normal:
+    switch (result.riskLevel) {
+      case RiskLevel.normal:
         return _ResultConfig(
-          type: type,
-          title: 'Normal',
-          subtitle: 'No signs of concern detected.',
-          percent: null,
+          title: result.summary.isEmpty ? 'Normal' : result.summary,
+          subtitle: 'No major concerns detected in this scan.',
           accentColor: const Color(0xFF0C8A8A),
           iconBgColor: const Color(0xFFE8F2F2),
-          primaryButtonText: 'View Oral Care Tips',
           bottomSectionTitle: 'RECOMMENDATIONS',
-          details: const [
-            _DetailItem('Teeth', 'Excellent', Color(0xFF0C8A8A)),
-            _DetailItem('Gums', 'Healthy', Color(0xFF0C8A8A)),
-            _DetailItem('Plaque', 'Very Low', Color(0xFF0C8A8A)),
-            _DetailItem('Overall Risk', 'Low', Color(0xFF0C8A8A)),
-          ],
-          steps: const [
-            'Brush twice daily with fluoride toothpaste',
-            'Floss at least once a day',
-            'Schedule your next check-up in 6 months',
-          ],
+          details: _buildDetails(),
+          steps: _buildSteps(),
           showDisclaimer: false,
         );
-
-      case ScanResultType.caution:
+      case RiskLevel.caution:
         return _ResultConfig(
-          type: type,
-          title: 'Observation\nRecommended',
-          subtitle:
-              'Minor concerns detected. Maintain careful\noral hygiene.',
-          percent: 45,
+          title: result.summary.isEmpty ? 'Caution' : result.summary,
+          subtitle: 'Minor concerns were detected. Keep monitoring your oral health.',
           accentColor: const Color(0xFFFF9500),
           iconBgColor: null,
-          primaryButtonText: 'View Oral Care Tips',
           bottomSectionTitle: 'RECOMMENDATIONS',
-          details: const [
-            _DetailItem('Teeth', 'Good', Color(0xFF0C8A8A)),
-            _DetailItem('Gums', 'Slight Concern', Color(0xFFFF9500)),
-            _DetailItem('Plaque', 'Moderate', Color(0xFFFF9500)),
-            _DetailItem('Overall Risk', 'Moderate', Color(0xFFFF9500)),
-          ],
-          steps: const [
-            'Maintain careful hygiene practices',
-            'Re-check in 2 weeks',
-            'Monitor for any changes',
-          ],
+          details: _buildDetails(),
+          steps: _buildSteps(),
           showDisclaimer: false,
         );
-
-      case ScanResultType.highRisk:
+      case RiskLevel.highRisk:
         return _ResultConfig(
-          type: type,
-          title: 'High Risk Detected',
-          subtitle:
-              'Early detection is key. We recommend\nseeing a specialist.',
-          percent: 85,
+          title: result.summary.isEmpty ? 'High Risk Detected' : result.summary,
+          subtitle: 'Early detection matters. Please review the detailed report.',
           accentColor: const Color(0xFFFF453A),
           iconBgColor: null,
-          primaryButtonText: 'Find Specialist',
           bottomSectionTitle: 'NEXT STEPS',
-          details: const [
-            _DetailItem('Teeth', 'Concern Found', Color(0xFFFF453A)),
-            _DetailItem('Gums', 'Needs Care', Color(0xFFFF9500)),
-            _DetailItem('Plaque', 'Moderate', Color(0xFFFF9500)),
-            _DetailItem('Overall Risk', 'High', Color(0xFFFF453A)),
-          ],
-          steps: const [
-            'Schedule a professional examination',
-            'Avoid hard or sticky foods',
-            'Use a prescribed antibacterial rinse',
-          ],
+          details: _buildDetails(),
+          steps: _buildSteps(),
           showDisclaimer: true,
         );
+    }
+  }
+
+  List<_DetailItem> _buildDetails() {
+    final items = result.details.entries
+        .map(
+          (entry) => _DetailItem(
+            _formatLabel(entry.key),
+            entry.value,
+            _valueColor(entry.value),
+          ),
+        )
+        .toList();
+
+    items.add(
+      _DetailItem(
+        'Overall Risk',
+        '${result.probability.toStringAsFixed(result.probability % 1 == 0 ? 0 : 1)}%',
+        _accentColor,
+      ),
+    );
+
+    return items;
+  }
+
+  List<String> _buildSteps() {
+    if (result.recommendations.isNotEmpty) {
+      return result.recommendations;
+    }
+
+    return const ['Keep up with regular oral hygiene and monitor any changes.'];
+  }
+
+  String _formatLabel(String key) {
+    return key
+        .split('_')
+        .map((word) => word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}')
+        .join(' ');
+  }
+
+  Color _valueColor(String value) {
+    final lower = value.toLowerCase();
+    if (lower.contains('normal') || lower.contains('healthy') || lower.contains('excellent')) {
+      return const Color(0xFF0C8A8A);
+    }
+    if (lower.contains('moderate') || lower.contains('caution')) {
+      return const Color(0xFFFF9500);
+    }
+    if (lower.contains('risk') || lower.contains('needs') || lower.contains('concern')) {
+      return const Color(0xFFFF453A);
+    }
+    return _accentColor;
+  }
+
+  Color get _accentColor {
+    switch (result.riskLevel) {
+      case RiskLevel.normal:
+        return const Color(0xFF0C8A8A);
+      case RiskLevel.caution:
+        return const Color(0xFFFF9500);
+      case RiskLevel.highRisk:
+        return const Color(0xFFFF453A);
     }
   }
 
@@ -183,9 +206,14 @@ class ResultScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 24),
                     _PrimaryButton(
-                      text: config.primaryButtonText,
+                      text: 'View Detailed Report',
                       onPressed: () {
-                        // TODO: 팁 화면 또는 병원 연결
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ResultDetailScreen(result: result),
+                          ),
+                        );
                       },
                     ),
                     const SizedBox(height: 14),
@@ -225,7 +253,7 @@ class ResultScreen extends StatelessWidget {
   }
 
   Widget _buildTopResult(_ResultConfig config) {
-    if (config.type == ScanResultType.normal) {
+    if (result.riskLevel == RiskLevel.normal) {
       return Column(
         children: [
           Container(
@@ -268,7 +296,7 @@ class ResultScreen extends StatelessWidget {
     return Column(
       children: [
         Text(
-          '${config.percent}%',
+          '${result.probability.toStringAsFixed(result.probability % 1 == 0 ? 0 : 1)}%',
           style: TextStyle(
             fontSize: 58,
             height: 1,
@@ -303,26 +331,20 @@ class ResultScreen extends StatelessWidget {
 }
 
 class _ResultConfig {
-  final ScanResultType type;
   final String title;
   final String subtitle;
-  final int? percent;
   final Color accentColor;
   final Color? iconBgColor;
-  final String primaryButtonText;
   final String bottomSectionTitle;
   final List<_DetailItem> details;
   final List<String> steps;
   final bool showDisclaimer;
 
   const _ResultConfig({
-    required this.type,
     required this.title,
     required this.subtitle,
-    required this.percent,
     required this.accentColor,
     required this.iconBgColor,
-    required this.primaryButtonText,
     required this.bottomSectionTitle,
     required this.details,
     required this.steps,

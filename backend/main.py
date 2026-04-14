@@ -6,7 +6,7 @@ from typing import List, Optional
 
 from fastapi import FastAPI, File, UploadFile, Query, HTTPException, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, Text
@@ -18,10 +18,16 @@ from tensorflow import keras
 from PIL import Image
 from pydantic import BaseModel, EmailStr
 
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_requests
+
 from authlib.integrations.starlette_client import OAuth
+from dotenv import load_dotenv
 from starlette.middleware.sessions import SessionMiddleware
 
 # --- 1. Configuration & Security ---
+load_dotenv()
+
 SECRET_KEY = os.getenv("SECRET_KEY", "YOUR_SUPER_SECRET_KEY_FOR_ORAQ") 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
@@ -96,6 +102,30 @@ def create_access_token(data: dict):
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
+async def extract_login_credentials(request: Request):
+    content_type = request.headers.get("content-type", "").lower()
+    email = None
+    password = None
+
+    if "application/json" in content_type:
+        try:
+            payload = await request.json()
+        except json.JSONDecodeError:
+            payload = {}
+
+        if isinstance(payload, dict):
+            email = payload.get("email") or payload.get("username")
+            password = payload.get("password")
+    else:
+        form = await request.form()
+        email = form.get("username") or form.get("email")
+        password = form.get("password")
+
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="Email and password are required.")
+
+    return email, password
+
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(status_code=401, detail="Could not validate credentials")
     try:
@@ -131,6 +161,11 @@ class UserUpdate(BaseModel):
     gender: Optional[str] = None
     blood_type: Optional[str] = None
 
+class GoogleMobileLoginRequest(BaseModel):
+    id_token: str
+    email: EmailStr
+    display_name: Optional[str] = None
+
 # --- 7. API Setup ---
 app = FastAPI(title="OraQ Oral Health AI API")
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
@@ -154,9 +189,10 @@ async def signup(user_in: UserCreate, db: Session = Depends(get_db)):
 
 # [AUTH] Login
 @app.post("/auth/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == form_data.username).first()
-    if not user or not user.hashed_password or not pwd_context.verify(form_data.password, user.hashed_password):
+async def login(request: Request, db: Session = Depends(get_db)):
+    email, password = await extract_login_credentials(request)
+    user = db.query(User).filter(User.email == email).first()
+    if not user or not user.hashed_password or not pwd_context.verify(password, user.hashed_password):
         raise HTTPException(status_code=400, detail="Incorrect email or password.")
     access_token = create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
@@ -191,6 +227,41 @@ async def google_auth(request: Request, db: Session = Depends(get_db)):
     
     access_token = create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer", "method": "google"}
+
+@app.post("/auth/google/mobile", response_model=Token)
+async def google_mobile_login(payload: GoogleMobileLoginRequest, db: Session = Depends(get_db)):
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=500, detail="Google login is not configured.")
+
+    try:
+        idinfo = google_id_token.verify_oauth2_token(
+            payload.id_token,
+            google_requests.Request(),
+            audience=GOOGLE_CLIENT_ID,
+        )
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid Google ID token")
+
+    token_email = idinfo.get("email")
+    if not token_email or token_email.lower() != payload.email.lower():
+        raise HTTPException(status_code=400, detail="Email mismatch between token and request")
+
+    if not idinfo.get("email_verified", False):
+        raise HTTPException(status_code=400, detail="Google email not verified")
+
+    user = db.query(User).filter(User.email == token_email).first()
+    if not user:
+        user = User(
+            email=token_email,
+            full_name=payload.display_name or idinfo.get("name"),
+            hashed_password=None
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    access_token = create_access_token(data={"sub": user.email})
+    return {"access_token": access_token, "token_type": "bearer"}
 
 # 1. AI Diagnosis (predictRisk)
 @app.post("/scans/predict")

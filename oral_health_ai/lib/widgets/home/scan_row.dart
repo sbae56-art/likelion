@@ -3,10 +3,12 @@ import '../../models/scan_item.dart';
 
 class ScanRow extends StatelessWidget {
   final ScanItem item;
+  final VoidCallback? onTap;
 
   const ScanRow({
     super.key,
     required this.item,
+    this.onTap,
   });
 
   Color _dotColor(RiskLevel level) {
@@ -46,72 +48,76 @@ class ScanRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = _dotColor(item.riskLevel);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              color: accent,
-              shape: BoxShape.circle,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: accent,
+                shape: BoxShape.circle,
+              ),
             ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.date,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Text(
-                      '${item.riskPercent}%',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: accent,
-                      ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.date,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black,
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _chipBgColor(item.riskLevel),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        item.label,
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Text(
+                        item.formattedPercent,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 15,
                           fontWeight: FontWeight.w500,
-                          color: _chipTextColor(item.riskLevel),
+                          color: accent,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _chipBgColor(item.riskLevel),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          item.label,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: _chipTextColor(item.riskLevel),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Icon(
-            Icons.chevron_right,
-            size: 20,
-            color: Color(0xFFD0D0D5),
-          ),
-        ],
+            const Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: Color(0xFFD0D0D5),
+            ),
+          ],
+        ),
       ),
     );
   }
