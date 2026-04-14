@@ -107,7 +107,7 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
 
     if (_isLoading) return;
 
-    gsi.triggerGoogleSignIn();
+    gsi.triggerGoogleSignIn(clientId: AuthService.googleClientId);
   }
 
   void _showMessage(String message) {

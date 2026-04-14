@@ -35,14 +35,23 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
-
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+  <script>
+    // Handle Google OAuth redirect in popup
+    (function() {
+      if (window.opener && window.location.hash) {
+        var params = new URLSearchParams(window.location.hash.substring(1));
+        var idToken = params.get('id_token');
+        if (idToken) {
+          window.opener.postMessage(
+            {type: 'google_id_token', id_token: idToken},
+            window.location.origin
+          );
+          window.close();
+          return;
+        }
+      }
+    })();
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

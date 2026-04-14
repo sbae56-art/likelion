@@ -1,74 +1,70 @@
+import 'dart:math';
 import 'dart:js_interop';
 
 import 'package:web/web.dart' as web;
 
-@JS('google.accounts.id.initialize')
-external void _gsiInitialize(JSObject config);
-
-@JS('google.accounts.id.renderButton')
-external void _gsiRenderButton(JSAny element, JSObject config);
-
-@JS('google.accounts.id.prompt')
-external void _gsiPrompt();
-
-extension type _CredentialResponse._(JSObject _) implements JSObject {
-  external String get credential;
-}
-
 typedef GoogleCredentialCallback = void Function(String idToken);
 
-bool _initialized = false;
+GoogleCredentialCallback? _onCredential;
+bool _listenerAdded = false;
+
+extension type _MessageData._(JSObject _) implements JSObject {
+  external String? get type;
+  @JS('id_token')
+  external String? get idToken;
+}
 
 void initGoogleSignInWeb({
   required String clientId,
   required GoogleCredentialCallback onCredential,
 }) {
-  if (_initialized) return;
+  _onCredential = onCredential;
 
-  final config = <String, JSAny?>{
-    'client_id': clientId.toJS,
-    'callback': ((JSAny response) {
-      final cred = response as _CredentialResponse;
-      onCredential(cred.credential);
-    }).toJS,
-    'auto_select': false.toJS,
-  }.jsify() as JSObject;
+  if (_listenerAdded) return;
 
-  _gsiInitialize(config);
+  web.window.addEventListener(
+    'message',
+    (web.Event e) {
+      try {
+        final event = e as web.MessageEvent;
+        final data = event.data;
+        if (data == null) return;
 
-  final container = web.document.createElement('div');
-  container.id = 'gsi-hidden-btn';
-  (container as web.HTMLElement).style.setProperty('position', 'fixed');
-  container.style.setProperty('top', '-9999px');
-  container.style.setProperty('left', '-9999px');
-  web.document.body!.append(container);
+        final msg = data as _MessageData;
+        if (msg.type == 'google_id_token' && msg.idToken != null) {
+          _onCredential?.call(msg.idToken!);
+        }
+      } catch (_) {}
+    }.toJS,
+  );
 
-  final btnConfig = <String, JSAny?>{
-    'type': 'standard'.toJS,
-    'size': 'large'.toJS,
-    'theme': 'outline'.toJS,
-    'text': 'signin_with'.toJS,
-  }.jsify() as JSObject;
-
-  _gsiRenderButton(container, btnConfig);
-
-  _initialized = true;
+  _listenerAdded = true;
 }
 
-void showGooglePrompt() {
-  _gsiPrompt();
+String _generateNonce() {
+  final random = Random.secure();
+  return List.generate(
+    32,
+    (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
+  ).join();
 }
 
-void triggerGoogleSignIn() {
-  final container = web.document.getElementById('gsi-hidden-btn');
-  if (container == null) return;
+void triggerGoogleSignIn({required String clientId}) {
+  final origin = web.window.location.origin;
 
-  final btn = container.querySelector('div[role="button"]')
-      ?? container.querySelector('iframe');
+  final base =
+      web.document.querySelector('base')?.getAttribute('href') ?? '/';
+  final redirectUri = '$origin$base';
 
-  if (btn != null) {
-    (btn as web.HTMLElement).click();
-  } else {
-    _gsiPrompt();
-  }
+  final nonce = _generateNonce();
+
+  final url = 'https://accounts.google.com/o/oauth2/v2/auth?'
+      'client_id=${Uri.encodeComponent(clientId)}'
+      '&redirect_uri=${Uri.encodeComponent(redirectUri)}'
+      '&response_type=id_token'
+      '&scope=openid%20email%20profile'
+      '&nonce=$nonce'
+      '&prompt=select_account';
+
+  web.window.open(url, 'google_signin', 'width=500,height=600');
 }
