@@ -32,19 +32,26 @@ class _CameraScreenState extends State<CameraScreen>
   @override
   void initState() {
     super.initState();
+    if (kIsWeb) {
+      _isInitializing = false;
+      return;
+    }
     WidgetsBinding.instance.addObserver(this);
     _initializeCamera();
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _controller?.dispose();
+    if (!kIsWeb) {
+      WidgetsBinding.instance.removeObserver(this);
+      _controller?.dispose();
+    }
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (kIsWeb) return;
     final controller = _controller;
     if (controller == null || !controller.value.isInitialized) return;
 
