@@ -1,11 +1,56 @@
 import 'package:flutter/material.dart';
+import '../models/scan_item.dart';
+import '../models/scan_result_data.dart';
 import '../widgets/result/oral_map_widget.dart';
 
 class ResultDetailScreen extends StatelessWidget {
-  const ResultDetailScreen({super.key});
+  final ScanResultData result;
+
+  const ResultDetailScreen({
+    super.key,
+    required this.result,
+  });
+
+  Color get _accentColor {
+    switch (result.riskLevel) {
+      case RiskLevel.normal:
+        return const Color(0xFF0C8A8A);
+      case RiskLevel.caution:
+        return const Color(0xFFFF9500);
+      case RiskLevel.highRisk:
+        return const Color(0xFFFF453A);
+    }
+  }
+
+  Color get _badgeBackground {
+    switch (result.riskLevel) {
+      case RiskLevel.normal:
+        return const Color(0xFFE8F6F3);
+      case RiskLevel.caution:
+        return const Color(0xFFFFF4E5);
+      case RiskLevel.highRisk:
+        return const Color(0xFFFFF1F0);
+    }
+  }
+
+  String get _statusLabel {
+    switch (result.riskLevel) {
+      case RiskLevel.normal:
+        return 'Normal';
+      case RiskLevel.caution:
+        return 'Caution';
+      case RiskLevel.highRisk:
+        return 'High Risk Detected';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final detailEntries = result.details.entries.toList();
+    final primaryRecommendation = result.recommendations.isEmpty
+        ? 'Keep monitoring your oral condition and maintain a consistent hygiene routine.'
+        : result.recommendations.first;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -65,24 +110,24 @@ class ResultDetailScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFF1F0),
+                        color: _badgeBackground,
                         borderRadius: BorderRadius.circular(999),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.circle,
                             size: 8,
-                            color: Color(0xFFFF453A),
+                            color: _accentColor,
                           ),
-                          SizedBox(width: 6),
+                          const SizedBox(width: 6),
                           Text(
-                            'High Risk Detected',
+                            _statusLabel,
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFFFF453A),
+                              color: _accentColor,
                             ),
                           ),
                         ],
@@ -101,14 +146,33 @@ class ResultDetailScreen extends StatelessWidget {
                     const SizedBox(height: 20),
                     _InfoCard(
                       child: Column(
-                        children: const [
-                          _RiskSummaryHeader(),
-                          Divider(height: 1, thickness: 1, color: Color(0xFFEAEAF0)),
-                          _DetailMetricRow(label: 'Risk Level', value: '85%', valueColor: Color(0xFFFF453A)),
-                          Divider(height: 1, thickness: 1, color: Color(0xFFEAEAF0)),
-                          _DetailMetricRow(label: 'Affected Area', value: 'Molar Region', valueColor: Color(0xFF0C8A8A)),
-                          Divider(height: 1, thickness: 1, color: Color(0xFFEAEAF0)),
-                          _DetailMetricRow(label: 'Confidence', value: 'High', valueColor: Color(0xFF0C8A8A), isLast: true),
+                        children: [
+                          _RiskSummaryHeader(
+                            title: _statusLabel,
+                            subtitle: result.summary,
+                            accentColor: _accentColor,
+                          ),
+                          const Divider(height: 1, thickness: 1, color: Color(0xFFEAEAF0)),
+                          _DetailMetricRow(
+                            label: 'Risk Level',
+                            value: '${result.probability.toStringAsFixed(result.probability % 1 == 0 ? 0 : 1)}%',
+                            valueColor: _accentColor,
+                          ),
+                          ...List.generate(detailEntries.length, (index) {
+                            final entry = detailEntries[index];
+                            final isLast = index == detailEntries.length - 1;
+                            return Column(
+                              children: [
+                                const Divider(height: 1, thickness: 1, color: Color(0xFFEAEAF0)),
+                                _DetailMetricRow(
+                                  label: _formatLabel(entry.key),
+                                  value: entry.value,
+                                  valueColor: _accentColor,
+                                  isLast: isLast,
+                                ),
+                              ],
+                            );
+                          }),
                         ],
                       ),
                     ),
@@ -117,37 +181,37 @@ class ResultDetailScreen extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFF5F4),
+                        color: _badgeBackground,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: const Color(0xFFFFE1DD),
+                          color: _accentColor.withOpacity(0.2),
                         ),
                       ),
-                      child: const Row(
+                      child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Icon(
                             Icons.warning_amber_rounded,
-                            color: Color(0xFFFF7A6E),
+                            color: _accentColor,
                             size: 20,
                           ),
-                          SizedBox(width: 10),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Issue detected in lower right quadrant',
-                                  style: TextStyle(
+                                  _statusLabel,
+                                  style: const TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,
                                     color: Colors.black,
                                   ),
                                 ),
-                                SizedBox(height: 4),
+                                const SizedBox(height: 4),
                                 Text(
-                                  'Early detection is key — schedule an exam soon',
-                                  style: TextStyle(
+                                  primaryRecommendation,
+                                  style: const TextStyle(
                                     fontSize: 13,
                                     color: Color(0xFFB2B2B8),
                                   ),
@@ -160,8 +224,10 @@ class ResultDetailScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 18),
                     _PrimaryButton(
-                      text: 'View Detailed Report',
-                      onPressed: () {},
+                      text: 'Back To Previous Screen',
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
                     ),
                     const SizedBox(height: 14),
                     GestureDetector(
@@ -194,6 +260,13 @@ class ResultDetailScreen extends StatelessWidget {
       ),
     );
   }
+
+  String _formatLabel(String key) {
+    return key
+        .split('_')
+        .map((word) => word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}')
+        .join(' ');
+  }
 }
 
 class _InfoCard extends StatelessWidget {
@@ -217,7 +290,15 @@ class _InfoCard extends StatelessWidget {
 }
 
 class _RiskSummaryHeader extends StatelessWidget {
-  const _RiskSummaryHeader();
+  final String title;
+  final String subtitle;
+  final Color accentColor;
+
+  const _RiskSummaryHeader({
+    required this.title,
+    required this.subtitle,
+    required this.accentColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -233,18 +314,18 @@ class _RiskSummaryHeader extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: const Color(0xFFFF453A),
+                color: accentColor,
                 width: 1.8,
               ),
             ),
           ),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Lower Right Quadrant',
+                  title,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -253,7 +334,7 @@ class _RiskSummaryHeader extends StatelessWidget {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  'Abnormal tissue pattern detected',
+                  subtitle,
                   style: TextStyle(
                     fontSize: 13,
                     color: Color(0xFFA6A6AD),

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'analyzing_screen.dart';
@@ -19,7 +18,7 @@ class CameraScreen extends StatelessWidget {
           context,
           MaterialPageRoute(
             // 다음 화면(AnalyzingScreen)으로 찍은 사진 파일 전달!
-            builder: (_) => const AnalyzingScreen(),
+            builder: (_) => AnalyzingScreen(imageFile: photo),
           ),
         );
       }

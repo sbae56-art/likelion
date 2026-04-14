@@ -1,13 +1,26 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
-  // Android emulator
-  static const String baseUrl = 'http://127.0.0.1:8000';
+  static String get baseUrl {
+    if (kIsWeb) {
+      return 'https://jyun45-oraq-backend.hf.space';
+    }
 
-  // iOS simulator면 보통 http://127.0.0.1:8000
-  // 실제 폰이면 네 PC 로컬 IP로 바꿔야 함
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return 'http://10.0.2.2:8000';
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+      case TargetPlatform.windows:
+      case TargetPlatform.linux:
+        return 'http://127.0.0.1:8000';
+      case TargetPlatform.fuchsia:
+        return 'http://127.0.0.1:8000';
+    }
+  }
 
   static Future<Map<String, dynamic>> signup({
     required String email,
