@@ -54,6 +54,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _isLoading = true;
     });
 
+    await AuthService.refreshProfileFromServer();
     final profile = await AuthService.getSavedProfile();
 
     if (!mounted) return;

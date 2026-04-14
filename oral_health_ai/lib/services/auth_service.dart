@@ -107,6 +107,7 @@ class AuthService {
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
         await _saveToken(body);
+        await refreshProfileFromServer();
         return {
           'success': true,
           'data': body,
@@ -153,11 +154,7 @@ class AuthService {
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
         await _saveToken(decoded);
-
-        if (displayName != null && displayName.trim().isNotEmpty) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('profile_full_name', displayName.trim());
-        }
+        await refreshProfileFromServer();
 
         return {
           'success': true,
@@ -211,6 +208,8 @@ class AuthService {
             'age': age,
             'gender': gender,
             'blood_type': bloodType,
+            'smoker': smoker,
+            'alcohol': alcohol,
           }),
         );
 
@@ -233,6 +232,66 @@ class AuthService {
         'message': 'Profile update exception: $e',
       };
     }
+  }
+
+  static Future<void> refreshProfileFromServer() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+    if (token == null || token.isEmpty) return;
+
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/users/me'),
+            headers: {
+              'accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode != 200) return;
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) return;
+
+      final fn = decoded['full_name']?.toString();
+      if (fn != null && fn.isNotEmpty) {
+        await prefs.setString('profile_full_name', fn);
+      }
+
+      final ageVal = decoded['age'];
+      if (ageVal is int) {
+        await prefs.setInt('profile_age', ageVal);
+      } else if (ageVal != null) {
+        final p = int.tryParse(ageVal.toString());
+        if (p != null) await prefs.setInt('profile_age', p);
+      }
+
+      final g = decoded['gender']?.toString();
+      if (g != null && g.isNotEmpty) {
+        await prefs.setString('profile_gender', g);
+      }
+
+      final bt = decoded['blood_type']?.toString();
+      if (bt != null && bt.isNotEmpty) {
+        await prefs.setString('profile_blood_type', bt);
+      }
+
+      final sm = decoded['smoker'];
+      if (sm is bool) {
+        await prefs.setBool('profile_smoker', sm);
+      } else if (sm != null) {
+        await prefs.setBool('profile_smoker', sm.toString() == 'true');
+      }
+
+      final alc = decoded['alcohol'];
+      if (alc is bool) {
+        await prefs.setBool('profile_alcohol', alc);
+      } else if (alc != null) {
+        await prefs.setBool('profile_alcohol', alc.toString() == 'true');
+      }
+    } catch (_) {}
   }
 
   static Future<Map<String, dynamic>> getSavedProfile() async {

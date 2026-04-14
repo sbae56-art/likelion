@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, Text
+from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, Text, Boolean, inspect, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship
 import numpy as np
@@ -29,7 +29,7 @@ from starlette.middleware.sessions import SessionMiddleware
 load_dotenv()
 
 SECRET_KEY = os.getenv("SECRET_KEY", "YOUR_SUPER_SECRET_KEY_FOR_ORAQ") 
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "360152998799-iud4ufqjuqb5ak9jjl44dl4pm8iki0je.apps.googleusercontent.com")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 
 ALGORITHM = "HS256"
@@ -74,6 +74,8 @@ class User(Base):
     age = Column(Integer, nullable=True)
     gender = Column(String, nullable=True)
     blood_type = Column(String, nullable=True)
+    smoker = Column(Boolean, nullable=True, default=False)
+    alcohol = Column(Boolean, nullable=True, default=False)
     scans = relationship("Scan", back_populates="owner")
 
 class Scan(Base):
@@ -89,6 +91,24 @@ class Scan(Base):
     owner = relationship("User", back_populates="scans")
 
 Base.metadata.create_all(bind=engine)
+
+
+def migrate_sqlite_user_columns():
+    if "sqlite" not in DATABASE_URL:
+        return
+    try:
+        inspector = inspect(engine)
+        cols = {c["name"] for c in inspector.get_columns("users")}
+        with engine.begin() as conn:
+            if "smoker" not in cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN smoker BOOLEAN DEFAULT 0"))
+            if "alcohol" not in cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN alcohol BOOLEAN DEFAULT 0"))
+    except Exception as e:
+        print(f"User table migration: {e}")
+
+
+migrate_sqlite_user_columns()
 
 # --- 4. Utilities & Dependencies ---
 def get_db():
@@ -160,6 +180,8 @@ class UserUpdate(BaseModel):
     age: Optional[int] = None
     gender: Optional[str] = None
     blood_type: Optional[str] = None
+    smoker: Optional[bool] = None
+    alcohol: Optional[bool] = None
 
 class GoogleMobileLoginRequest(BaseModel):
     id_token: str
@@ -326,10 +348,28 @@ async def delete_scan(scan_id: int, current_user: User = Depends(get_current_use
     return {"success_status": True, "message": "Record deleted successfully"}
 
 # [USER] Profile Management
+@app.get("/users/me")
+async def read_profile(current_user: User = Depends(get_current_user)):
+    return {
+        "full_name": current_user.full_name,
+        "age": current_user.age,
+        "gender": current_user.gender,
+        "blood_type": current_user.blood_type,
+        "smoker": bool(current_user.smoker) if current_user.smoker is not None else False,
+        "alcohol": bool(current_user.alcohol) if current_user.alcohol is not None else False,
+    }
+
+
 @app.patch("/users/me")
 async def update_profile(user_update: UserUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    for key, value in user_update.dict(exclude_unset=True).items():
+    raw = (
+        user_update.model_dump(exclude_unset=True)
+        if hasattr(user_update, "model_dump")
+        else user_update.dict(exclude_unset=True)
+    )
+    for key, value in raw.items():
         setattr(current_user, key, value)
     db.add(current_user)
     db.commit()
+    db.refresh(current_user)
     return {"message": "Profile updated"}
