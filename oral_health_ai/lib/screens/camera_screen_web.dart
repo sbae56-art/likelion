@@ -81,20 +81,6 @@ class _CameraScreenState extends State<CameraScreen> {
     }
   }
 
-  Widget _buildPreviewPlaceholder() {
-    return Container(
-      color: Colors.black,
-      alignment: Alignment.center,
-      child: Text(
-        'Tap the shutter to open the camera',
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.35),
-          fontSize: 14,
-        ),
-      ),
-    );
-  }
-
   Widget _buildAnalyzingOverlay() {
     if (!_isAnalyzing) return const SizedBox.shrink();
 
@@ -153,7 +139,15 @@ class _CameraScreenState extends State<CameraScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 48),
+          IconButton(
+            onPressed: null,
+            icon: Icon(
+              Icons.flash_off,
+              color: Colors.white.withValues(alpha: 0.45),
+              size: 20,
+            ),
+            tooltip: 'Flash not available in browser',
+          ),
         ],
       ),
     );
@@ -170,12 +164,14 @@ class _CameraScreenState extends State<CameraScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           IconButton(
-            onPressed: disabled ? null : () => _pickAndAnalyze(ImageSource.gallery),
+            onPressed:
+                disabled ? null : () => _pickAndAnalyze(ImageSource.gallery),
             icon: const Icon(
-              Icons.photo_library_outlined,
+              Icons.replay_outlined,
               color: Colors.white,
               size: 24,
             ),
+            tooltip: 'Choose from gallery',
           ),
           GestureDetector(
             onTap: disabled ? null : () => _pickAndAnalyze(ImageSource.camera),
@@ -231,7 +227,7 @@ class _CameraScreenState extends State<CameraScreen> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      _buildPreviewPlaceholder(),
+                      ColoredBox(color: Colors.black),
                       Container(
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
