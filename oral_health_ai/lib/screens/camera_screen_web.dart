@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/scan_service.dart';
+import '../widgets/scan/mouth_guide.dart';
 import 'camera_scan_helpers.dart';
 import 'result_screen.dart';
 
+/// Web: same Oral Scan UI as mobile (guide + shutter) but capture uses
+/// [ImageSource.camera] — avoids importing `camera` (no web implementation).
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
 
@@ -12,17 +15,24 @@ class CameraScreen extends StatefulWidget {
 }
 
 class _CameraScreenState extends State<CameraScreen> {
+  bool _isCapturing = false;
   bool _isAnalyzing = false;
   String _analysisMessage = 'Analyzing your scan...';
 
-  Future<void> _pickImage(ImageSource source) async {
-    if (_isAnalyzing) return;
+  Future<void> _pickAndAnalyze(ImageSource source) async {
+    if (_isAnalyzing || _isCapturing) return;
+
+    setState(() => _isCapturing = true);
 
     try {
       final picker = ImagePicker();
       final picked = await picker.pickImage(source: source, imageQuality: 85);
 
-      if (picked == null || !mounted) return;
+      if (!mounted) return;
+
+      setState(() => _isCapturing = false);
+
+      if (picked == null) return;
 
       setState(() {
         _isAnalyzing = true;
@@ -48,7 +58,7 @@ class _CameraScreenState extends State<CameraScreen> {
         context: context,
         builder: (_) => AlertDialog(
           title: const Text('Analysis Failed'),
-                   content: Text(
+          content: Text(
             result['message']?.toString() ?? 'Failed to analyze scan.',
           ),
           actions: [
@@ -61,159 +71,205 @@ class _CameraScreenState extends State<CameraScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isAnalyzing = false);
+      setState(() {
+        _isCapturing = false;
+        _isAnalyzing = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Image pick failed: $e')),
+        SnackBar(content: Text('Capture failed: $e')),
       );
     }
+  }
+
+  Widget _buildPreviewPlaceholder() {
+    return Container(
+      color: Colors.black,
+      alignment: Alignment.center,
+      child: Text(
+        'Tap the shutter to open the camera',
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.35),
+          fontSize: 14,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnalyzingOverlay() {
+    if (!_isAnalyzing) return const SizedBox.shrink();
+
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black.withValues(alpha: 0.74),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(
+                width: 34,
+                height: 34,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 3,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                _analysisMessage,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopBar() {
+    final busy = _isAnalyzing || _isCapturing;
+
+    return Container(
+      color: Colors.black,
+      padding: const EdgeInsets.only(top: 52, left: 18, right: 18, bottom: 14),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: busy ? null : () => Navigator.pop(context),
+            icon: const Icon(Icons.close, color: Colors.white, size: 22),
+          ),
+          const Expanded(
+            child: Center(
+              child: Text(
+                'Oral Scan',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 48),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomBar() {
+    final disabled = _isAnalyzing || _isCapturing;
+
+    return Container(
+      height: 96,
+      color: Colors.black,
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(
+            onPressed: disabled ? null : () => _pickAndAnalyze(ImageSource.gallery),
+            icon: const Icon(
+              Icons.photo_library_outlined,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+          GestureDetector(
+            onTap: disabled ? null : () => _pickAndAnalyze(ImageSource.camera),
+            child: Opacity(
+              opacity: disabled ? 0.5 : 1,
+              child: Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 3),
+                ),
+                child: Center(
+                  child: Container(
+                    width: 52,
+                    height: 52,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.25),
+                width: 1.2,
+              ),
+              borderRadius: BorderRadius.circular(7),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF111111),
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        leading: IconButton(
-          onPressed: _isAnalyzing ? null : () => Navigator.pop(context),
-          icon: const Icon(Icons.close, color: Colors.white),
-        ),
-        centerTitle: true,
-        title: const Text(
-          'Oral Scan',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 17,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
-      body: Stack(
+      backgroundColor: Colors.black,
+      body: Column(
         children: [
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFF0C8A8A).withValues(alpha: 0.15),
-                    ),
-                    child: const Icon(
-                      Icons.camera_alt,
-                      size: 48,
-                      color: Color(0xFF0C8A8A),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Take or upload a photo\nof your mouth',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Use your camera or choose an existing image',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: ElevatedButton.icon(
-                      onPressed: _isAnalyzing
-                          ? null
-                          : () => _pickImage(ImageSource.camera),
-                      icon: const Icon(Icons.camera_alt),
-                      label: const Text(
-                        'Take Photo',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0C8A8A),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(28),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: OutlinedButton.icon(
-                      onPressed: _isAnalyzing
-                          ? null
-                          : () => _pickImage(ImageSource.gallery),
-                      icon: const Icon(Icons.photo_library),
-                      label: const Text(
-                        'Upload Image',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF0C8A8A),
-                        side: const BorderSide(
-                          color: Color(0xFF0C8A8A),
-                          width: 1.5,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(28),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (_isAnalyzing)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black.withValues(alpha: 0.74),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+          _buildTopBar(),
+          Expanded(
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: Stack(
+                    fit: StackFit.expand,
                     children: [
-                      const SizedBox(
-                        width: 34,
-                        height: 34,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 3,
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      Text(
-                        _analysisMessage,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
+                      _buildPreviewPlaceholder(),
+                      Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Color.fromRGBO(0, 0, 0, 0.32),
+                              Color.fromRGBO(0, 0, 0, 0.08),
+                              Color.fromRGBO(0, 0, 0, 0.32),
+                            ],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
+                Center(
+                  child: Transform.translate(
+                    offset: const Offset(0, -40),
+                    child: const MouthGuide(),
+                  ),
+                ),
+                Align(
+                  alignment: const Alignment(0, 0.72),
+                  child: Text(
+                    'Position your mouth within the guide',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.42),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ),
+                _buildAnalyzingOverlay(),
+              ],
             ),
+          ),
+          _buildBottomBar(),
         ],
       ),
     );
