@@ -8,15 +8,15 @@
 </div>
 
 ## 📌 Project Overview
-**OraQ**는 인공지능 영상 분석을 통해 사용자의 구강 사진을 분석하고, 위험도(Risk / Caution / Normal)를 예측하여 스마트한 구강 건강 가이드를 제공하는 애플리케이션입니다.
+**OraQ** is an intelligent application providing smart oral health guides by analyzing users' dental photos to predict risk levels (Risk / Caution / Normal).
 
-멋쟁이사자처럼(Likelion) 프로젝트의 일환으로 제작되었으며, Flutter를 통한 크로스 플랫폼 클라이언트와 FastAPI/TensorFlow로 강력한 진단 추론 서버를 제공합니다.
+Developed as part of the Likelion project, it features a cross-platform client built with Flutter and a powerful, reliable AI diagnosis backend powered by FastAPI and TensorFlow.
 
 ---
 
 ## 🏗 System Architecture
 
-OraQ 프로젝트의 전체 시스템 아키텍처 다이어그램입니다.
+The overarching system architecture diagram for the OraQ project.
 
 ```mermaid
 graph TD
@@ -28,14 +28,14 @@ graph TD
 
     %% Client Side
     subgraph Client ["Client (oral_health_ai - Flutter)"]
-        UI_Auth["로그인 / 회원가입 UI"]:::frontend
-        UI_Profile["프로필 정보 UI"]:::frontend
-        UI_Scan["구강 사진 업로드 UI"]:::frontend
-        UI_History["분석 이력 및 리포트 UI"]:::frontend
+        UI_Auth["Login / Signup UI"]:::frontend
+        UI_Profile["Profile Settings UI"]:::frontend
+        UI_Scan["Oral Photo Upload UI"]:::frontend
+        UI_History["Analysis History & Report UI"]:::frontend
     end
 
     %% External Auth
-    GoogleAuth["Google OAuth 2.0"]:::auth
+    GoogleAuth["Google OAuth 2.0 Provider"]:::auth
 
     %% Server Side
     subgraph Backend ["Backend API (FastAPI)"]
@@ -44,7 +44,7 @@ graph TD
         Router_Scan["Scan Router (/scans)"]:::backend
         
         JWT["JWT Authentication"]:::backend
-        Preprocess["이미지 전처리 224x224 정규화"]:::backend
+        Preprocess["Image Preprocessor (224x224 Resize & Norm)"]:::backend
     end
 
     %% TF Model
@@ -59,45 +59,45 @@ graph TD
     end
 
     %% Connections - Auth
-    UI_Auth -->|"1. 로그인 / 가입 요청"| Router_Auth
-    UI_Auth -.->|"Google 소셜 로그인 토큰 발급"| GoogleAuth
-    GoogleAuth -.->|"ID Token 유효성 검증"| Router_Auth
-    Router_Auth -->|"2. JWT 토큰 발급"| JWT
-    Router_Auth -->|"DB 사용자 동기화"| T_Users
+    UI_Auth -->|"1. Login/Signup Request"| Router_Auth
+    UI_Auth -.->|"Request Google Mobile Token"| GoogleAuth
+    GoogleAuth -.->|"Validate ID Token"| Router_Auth
+    Router_Auth -->|"2. Issue JWT Token"| JWT
+    Router_Auth -->|"Sync User Data"| T_Users
     
     %% Connections - Application Flow
-    UI_Profile -->|"나이, 성별, 신체정보 등 등록"| Router_User
-    Router_User -->|"유저 정보 CRUD"| T_Users
+    UI_Profile -->|"Update Profile (Age, Gender, Smoker, etc.)"| Router_User
+    Router_User -->|"User Info CRUD"| T_Users
     
-    UI_Scan -->|"API 인증 + 구강 이미지 Multipart 전송"| Router_Scan
-    Router_Scan -->|"이미지 데이터 추출"| Preprocess
-    Preprocess -->|"Tensor Array"| TF
-    TF -->|"구강 건강 위험도 Probability 도출"| Router_Scan
-    Router_Scan -->|"진단 리포트 및 가이드라인 DB 저장"| T_Scans
+    UI_Scan -->|"API Auth Token + Multi-part Image"| Router_Scan
+    Router_Scan -->|"Extract Image Bytes"| Preprocess
+    Preprocess -->|"Normalized Tensor Array"| TF
+    TF -->|"Return Risk Probability"| Router_Scan
+    Router_Scan -->|"Save Diagnosis Report & Guide"| T_Scans
     
-    UI_History -->|"과거 분석 이력 조회"| Router_Scan
-    Router_Scan -->|"이력 쿼리"| T_Scans
+    UI_History -->|"Fetch Previous Scans"| Router_Scan
+    Router_Scan -->|"Query History"| T_Scans
     
-    T_Users -->|"1 : N 관계"| T_Scans
+    T_Users -->|"1 : N Relationship"| T_Scans
 ```
 
 ---
 
-## 💻 Tech Stack 종합
+## 💻 Tech Stack Summary
 
-### Frontend (App)
+### Frontend (Application)
 *   **Framework**: Flutter (Dart)
-*   **Platforms**: Web, iOS, Android 지원
+*   **Platforms**: Web, iOS, Android support
 
 ### Backend (API Server)
 *   **Framework**: FastAPI (Python)
 *   **Auth**: JSON Web Tokens (JWT) & Google OAuth2
 *   **Database**: SQLite (`oraq_app.db`) + SQLAlchemy ORM
-*   **Deployment**: Local Backend 및 Hugging Face Spaces 대응 구조
+*   **Deployment**: Supports Local Backend and Hugging Face Spaces porting
 
 ### AI / Data Science
 *   **Model Format**: TensorFlow 2.x `SavedModel` (`model_exp03b_saved`)
-*   **Image Processing**: Pillow & Numpy 연산을 통한 224x224 RGB 정규화 (전처리)
+*   **Image Processing**: 224x224 RGB normalization using Pillow and Numpy operations
 
 ---
 
@@ -105,15 +105,15 @@ graph TD
 
 ```text
 likelion/
-├── backend/                  # 로컬 환경용 FastAPI 백엔드 (메인)
-│   ├── main.py               # 진입점 및 전체 API 라우터
-│   ├── model_exp03b_saved/   # TensorFlow 서빙 가능 AI 모델
-│   └── oraq_app.db           # SQLite DB
-├── hf_oraq_backend/          # Hugging Face 클라우드 배포용 구성
-│   ├── app.py                # 포팅된 API 서버
-│   └── Dockerfile            # 클라우드 호환을 위한 컨테이너라이징
-├── oral_health_ai/           # 애플리케이션 프론트엔드 (Flutter)
-│   ├── lib/                  # Dart UI 비즈니스 로직
-│   └── pubspec.yaml          # 패키지 매니저
-└── docs/                     # 프론트엔드 Web 정적 빌드 결과물 (GH Pages 배포용)
+├── backend/                  # Local environment FastAPI backend (Main)
+│   ├── main.py               # Entry point and global API router
+│   ├── model_exp03b_saved/   # TensorFlow serving AI model directory
+│   └── oraq_app.db           # SQLite DB for Users & Scans
+├── hf_oraq_backend/          # Cloud deployment configuration for Hugging Face
+│   ├── app.py                # Ported API Server
+│   └── Dockerfile            # Containerization configuration
+├── oral_health_ai/           # Cross-platform application frontend (Flutter)
+│   ├── lib/                  # Dart UI & business logic
+│   └── pubspec.yaml          # Package configurations
+└── docs/                     # Static Web build output (for GitHub pages deployment)
 ```
